@@ -1,0 +1,43 @@
+---
+- name: Netzwerkinterfaces konfigurieren
+  hosts: all
+  become: yes
+  tasks:
+    - name: Überprüfen, ob Netplan installiert ist
+      apt:
+        name: netplan
+        state: present
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Alte Netplan-Konfiguration sichern
+      copy:
+        src: /etc/netplan/01-netcfg.yaml
+        dest: /etc/netplan/01-netcfg.yaml.bak
+        remote_src: yes
+        force: yes
+      ignore_errors: yes
+
+    - name: Neue Netplan-Konfiguration bereitstellen
+      copy:
+        dest: /etc/netplan/01-netcfg.yaml
+        content: |
+          network:
+            version: 2
+            ethernets:
+              ens33:
+                dhcp4: no
+                addresses:
+                  - XXX.XXX.XXX.XXX/24
+                gateway4: XXX.XXX.XXX.XXX
+                nameservers:
+                  addresses:
+                    - DNS-Server1
+                    - DNS-Server2
+
+    - name: Netplan anwenden
+      command: netplan apply
+      register: netplan_apply_result
+
+    - name: Prüfung der Netzwerkkonfiguration
+      debug:
+        msg: "Netplan angewendet: {{ netplan_apply_result.stdout_lines if netplan_apply_result.stdout_lines else 'Erfolgreich' }}"
