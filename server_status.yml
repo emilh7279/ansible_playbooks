@@ -1,0 +1,111 @@
+---
+- name: Server Status Collector
+  hosts: all
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Erstelle ein Verzeichnis für die Status-Dateien
+      file:
+        path: /var/log/server_status
+        state: directory
+        mode: '0755'
+
+    - name: Hostname sammeln
+      command: hostname
+      register: hostname_info
+
+    - name: Schreibe Hostname in eine Datei
+      copy:
+        content: "Hostname: {{ hostname_info.stdout }}"
+        dest: /var/log/server_status/hostname.txt
+
+    - name: Betriebssysteminformationen sammeln
+      shell: cat /etc/os-release
+      register: os_info
+
+    - name: Schreibe Betriebssysteminformationen in eine Datei
+      copy:
+        content: "{{ os_info.stdout }}"
+        dest: /var/log/server_status/os_info.txt
+
+    - name: Patch-Stand sammeln (Debian/Ubuntu)
+      command: apt list --upgradable
+      register: patch_info
+      ignore_errors: yes
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Patch-Stand sammeln (RedHat/CentOS)
+      command: yum check-update
+      register: patch_info
+      ignore_errors: yes
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Schreibe Patch-Stand in eine Datei
+      copy:
+        content: "{{ patch_info.stdout if patch_info is defined else 'Patch-Informationen nicht verfügbar' }}"
+        dest: /var/log/server_status/patch_info.txt
+
+    - name: Sammle Informationen über die Festplattennutzung
+      command: df -h
+      register: disk_usage
+
+    - name: Schreibe Festplattennutzung in eine Datei
+      copy:
+        content: "{{ disk_usage.stdout }}"
+        dest: /var/log/server_status/disk_usage.txt
+
+    - name: Sammle Informationen über den Speicher
+      command: free -m
+      register: memory_usage
+
+    - name: Schreibe Speicherinformationen in eine Datei
+      copy:
+        content: "{{ memory_usage.stdout }}"
+        dest: /var/log/server_status/memory_usage.txt
+
+    - name: Sammle Informationen über laufende Prozesse
+      command: ps aux
+      register: running_processes
+
+    - name: Schreibe Prozessinformationen in eine Datei
+      copy:
+        content: "{{ running_processes.stdout }}"
+        dest: /var/log/server_status/running_processes.txt
+
+    - name: Sammle Netzwerkstatus
+      command: netstat -tuln
+      register: network_status
+
+    - name: Schreibe Netzwerkstatus in eine Datei
+      copy:
+        content: "{{ network_status.stdout }}"
+        dest: /var/log/server_status/network_status.txt
+
+    - name: Sammle Systeminformationen (Uptime)
+      command: uptime
+      register: system_uptime
+
+    - name: Schreibe Systeminformationen in eine Datei
+      copy:
+        content: "{{ system_uptime.stdout }}"
+        dest: /var/log/server_status/system_uptime.txt
+
+    - name: Zusammenfassung aller Informationen in einer Datei
+      shell: |
+        echo "Hostname:" > /var/log/server_status/summary.txt
+        cat /var/log/server_status/hostname.txt >> /var/log/server_status/summary.txt
+        echo -e "\nBetriebssystem:" >> /var/log/server_status/summary.txt
+        cat /var/log/server_status/os_info.txt >> /var/log/server_status/summary.txt
+        echo -e "\nPatch-Stand:" >> /var/log/server_status/summary.txt
+        cat /var/log/server_status/patch_info.txt >> /var/log/server_status/summary.txt
+        echo -e "\nDisk Usage:" >> /var/log/server_status/summary.txt
+        cat /var/log/server_status/disk_usage.txt >> /var/log/server_status/summary.txt
+        echo -e "\nMemory Usage:" >> /var/log/server_status/summary.txt
+        cat /var/log/server_status/memory_usage.txt >> /var/log/server_status/summary.txt
+        echo -e "\nRunning Processes:" >> /var/log/server_status/summary.txt
+        cat /var/log/server_status/running_processes.txt >> /var/log/server_status/summary.txt
+        echo -e "\nNetwork Status:" >> /var/log/server_status/summary.txt
+        cat /var/log/server_status/network_status.txt >> /var/log/server_status/summary.txt
+        echo -e "\nSystem Uptime:" >> /var/log/server_status/summary.txt
+        cat /var/log/server_status/system_uptime.txt >> /var/log/server_status/summary.txt
