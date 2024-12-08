@@ -1,0 +1,25 @@
+- name: Benutzer erstellen
+  user:
+    name: "{{ item.name }}"
+    password: "{{ item.password | password_hash('sha512') }}"
+    shell: /bin/bash
+    groups: "{{ item.groups }}"
+    state: present
+  with_items:
+    - name: admin
+      password: "admin_password"
+      groups: sudo
+    - name: user
+      password: "user_password"
+      groups: ""
+
+- name: SSH für Benutzer konfigurieren
+  authorized_key:
+    user: "{{ item.name }}"
+    state: present
+    key: "{{ item.ssh_key }}"
+  with_items:
+    - name: admin
+      ssh_key: "admin_key"
+    - name: user
+      ssh_key: "user_key"
